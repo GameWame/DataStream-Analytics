@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+covtype.csv
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.dat
