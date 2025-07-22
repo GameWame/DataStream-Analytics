@@ -213,7 +213,8 @@ class RiverModelRunner(ModelRunner):
             start_time = time.time()
 
             # In order to "simulate" a DataStream we send the data one by one. This may be done in mini-batches,
-            # improving the computing times of online algorithms, but the result may not be realistic.
+            # but CluStream and DenStream don't support the learn_many() method.
+
 
             for _, row in X_batch_raw.iterrows(): 
                 point_dict = row.to_dict()
