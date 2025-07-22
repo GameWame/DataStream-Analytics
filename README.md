@@ -10,7 +10,7 @@ This project provides a framework to analyze and compare the performance of diff
 
 You can run the experiment in two different modes to test the models under different conditions.
 
-### 🌳 Stationary Scenario
+### 🧮 Stationary Scenario
 
 This mode simulates a stable environment where the underlying data distribution does not change over time.
 
@@ -73,7 +73,7 @@ After the script finishes, a summary chart will be displayed. This chart allows 
 2.  **Silhouette Score:** To measure the quality of the clusters without looking at the true labels. It assesses how dense and well-separated the clusters are, using scores that range from -1 to 1, with higher values being better.
 3.  **Throughput (points/s):** To measure the efficiency and speed of the algorithm. 
 
-## 🔬 Troubleshotting
+## 💡 Troubleshotting
 
 Here are some solutions for common issues you might encounter.
 
