@@ -14,8 +14,8 @@ You can run the experiment in two different modes to test the models under diffe
 
 This mode simulates a stable environment where the underlying data distribution does not change over time.
 
-- **Dataset:** Uses the **Covertype** dataset from the UCI repository, which is downloaded automatically and temporally stored in the cache.
-- **Goal:** Assess the accuracy and efficiency of the algorithms in a predictable environment.
+-   **Dataset:** Uses the **Digits dataset**, which is included in the `scikit-learn` library and requires no download.
+-   **Goal:** Evaluate the accuracy and efficiency of the algorithms in a predictable and well-defined environment.
 
 ### 💨 Concept Drift Scenario
 
@@ -72,3 +72,15 @@ After the script finishes, a summary chart will be displayed. This chart allows 
 1.  **Adjusted Rand Index (ARI):** Measures the accuracy of the clustering, a score of 1.0 is a perfect match while 0.0 is no better than random.
 2.  **Silhouette Score:** To measure the quality of the clusters without looking at the true labels. It assesses how dense and well-separated the clusters are, using scores that range from -1 to 1, with higher values being better.
 3.  **Throughput (points/s):** To measure the efficiency and speed of the algorithm. 
+
+## 🔬 Troubleshotting
+
+Here are some solutions for common issues you might encounter.
+
+- If you're having trouble with computational times, you can reduce the "DATASET_FRACTION" variable.
+
+- The online algorithms are highly sensitive to their parameters, if you switch to a new dataset, you must tune their hyperparameters in ExperimentSettings to match the new data's scale and density.
+
+
+
+

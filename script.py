@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 from sklearn.cluster import KMeans
 from sklearn.metrics import adjusted_rand_score, silhouette_score
+from sklearn.datasets import load_digits 
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 
@@ -20,20 +21,25 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 class ExperimentSettings:
 
-    RUN_STATIONARY_SCENARIO: bool = False   # if true downloads covertype dataset, if false searches local batches (GasSensor dataset)
+    RUN_STATIONARY_SCENARIO: bool = False   # if true uses Digits dataset, if false searches local batches (GasSensor dataset)
     DATASET_FRACTION: float = 1.0  # How much of the dataset are we using (testing), 1.0 = 100%
     NUM_BATCHES: int = 10 # number of batches to generate
     
-
-    # Testing parameters
-
-    CLUSTREAM_MICRO_CLUSTERS: int = 100
-    DENSTREAM_EPSILON: float = 0.8
     KMEANS_N_INIT: int = 10
+
+    # Stationary Scenario parameters (Digits Dataset)
+    STATIONARY_CLUSTREAM_TIME_WINDOW: int = 200 
+    STATIONARY_CLUSTREAM_MICRO_CLUSTERS: int = 100
+    STATIONARY_DENSTREAM_EPSILON: float = 0.5
+    
+    # Concept drift scenario parameters (Gas Sensor)
     DRIFT_DATA_PATH: str = "."
     DRIFT_N_FEATURES: int = 128
     DRIFT_N_CLUSTERS: int = 6
     KMEANS_RETRAIN_INTERVAL: int = 3
+    DRIFT_CLUSTREAM_TIME_WINDOW: int = 1000 # default
+    DRIFT_CLUSTREAM_MICRO_CLUSTERS: int = 250
+    DRIFT_DENSTREAM_EPSILON: float = 0.8
 
 
 class DataHandler:
@@ -44,8 +50,8 @@ class DataHandler:
     def get_data_batches(self) -> (List[pd.DataFrame], int):
       
         if self.settings.RUN_STATIONARY_SCENARIO:
-            logging.info("Loading data for Stationary Scenario (Covertype).")
-            df = self._download_and_cache_covertype()
+            logging.info("Loading data for Stationary Scenario (Digits Dataset).")
+            df = self._load_and_prepare_digits()
             n_clusters = df['target'].nunique()
             batches = self._create_batches_from_df(df)
         else:
@@ -59,32 +65,11 @@ class DataHandler:
 
         return batches, n_clusters
 
-    def _download_and_cache_covertype(self, cache_dir: str = ".") -> pd.DataFrame:
-        """Downloading Covertype Dataset in cache."""
-        url = "https://archive.ics.uci.edu/ml/machine-learning-databases/covtype/covtype.data.gz"
-        csv_filename = os.path.join(cache_dir, "covtype.csv")
-
-        if not os.path.exists(csv_filename):
-            logging.info("Covertype dataset not found in cache. Starting download...")
-            gz_filename = os.path.join(cache_dir, "covtype.data.gz")
-            try:
-                response = requests.get(url, stream=True)
-                response.raise_for_status()
-                with open(gz_filename, "wb") as f:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                logging.info("Decompressing...")
-                with gzip.open(gz_filename, 'rb') as f_in, open(csv_filename, 'wb') as f_out:
-                    f_out.writelines(f_in)
-                os.remove(gz_filename)
-            except Exception as e:
-                logging.error(f"Error while downloading or decompressing: {e}")
-                raise
-
-        logging.info(f"Loading dataset from: {csv_filename}")
-        df = pd.read_csv(csv_filename, header=None)
-        n_features = len(df.columns) - 1
-        df.columns = [f'feature_{i+1}' for i in range(n_features)] + ['target']
+    def _load_and_prepare_digits(self) -> pd.DataFrame:
+        digits = load_digits()
+        df = pd.DataFrame(digits.data)
+        df['target'] = digits.target
+        logging.info(f"Digits Dataset loaded with {len(df)} samples and {len(df.columns)-1} feature.")
         return df
 
     def _create_batches_from_df(self, df: pd.DataFrame) -> List[pd.DataFrame]:
@@ -95,6 +80,7 @@ class DataHandler:
             df = df.sample(frac=frac, random_state=42) 
         
         df_shuffled = df.reset_index(drop=True)
+        #df_shuffled = df.sample(frac=1, random_state=42).reset_index(drop=True)
         batches = np.array_split(df_shuffled, self.settings.NUM_BATCHES)
         logging.info(f"Created {len(batches)} batches of approximately {len(batches[0])} samples each.")
         return batches
@@ -265,7 +251,6 @@ class ResultsVisualizer:
     def plot_summary(self):
         fig, axes = plt.subplots(3, 1, figsize=(14, 20), sharex=True)
         fig.suptitle(f'Metrics Summary - {self.scenario_title}', fontsize=20, y=0.95)
-
         
         metrics_config = [
             {'key': 'ari_score', 'title': 'Adjusted Rand Index (ARI)', 'ax': axes[0], 'ylim': (-0.1, 1.0)},
@@ -306,9 +291,9 @@ class ExperimentManager:
     def __init__(self, settings: ExperimentSettings):
         self.settings = settings
         self.scenario_title = (
-            "Stationary Scenario (Covertype Dataset)" 
+            "Stationary Scenario (Digits Dataset)" 
             if settings.RUN_STATIONARY_SCENARIO 
-            else "Concept Drift Scenario"
+            else "Concept Drift Scenario (Gas Sensor Dataset)"
         )
 
    # To test a specific model, comment out the others.
@@ -320,34 +305,43 @@ class ExperimentManager:
         batches, n_clusters = data_handler.get_data_batches()
         all_results = []
 
-        # --- K-Means ---
-        kmeans_static_runner = KMeansRunner("K-Means (Static)", self.settings, with_retraining=False)
-        kmeans_static_results = kmeans_static_runner.run_and_evaluate(batches, n_clusters)
-        all_results.append({'label': kmeans_static_runner.model_name, 'data': kmeans_static_results})
+        if self.settings.RUN_STATIONARY_SCENARIO:
+            clustream_time_window = self.settings.STATIONARY_CLUSTREAM_TIME_WINDOW
+            clustream_micro_clusters = self.settings.STATIONARY_CLUSTREAM_MICRO_CLUSTERS
+            denstream_epsilon = self.settings.STATIONARY_DENSTREAM_EPSILON
+        else:
+            clustream_time_window = self.settings.DRIFT_CLUSTREAM_TIME_WINDOW
+            clustream_micro_clusters = self.settings.DRIFT_CLUSTREAM_MICRO_CLUSTERS
+            denstream_epsilon = self.settings.DRIFT_DENSTREAM_EPSILON
 
-        # --- K-Means (with Retraining) ---
-        kmeans_retrain_runner = KMeansRunner("K-Means (with Retraining)", self.settings, with_retraining=True)
-        kmeans_retrain_results = kmeans_retrain_runner.run_and_evaluate(batches, n_clusters)
-        all_results.append({'label': kmeans_retrain_runner.model_name, 'data': kmeans_retrain_results})
+        runners = [
+            KMeansRunner("K-Means", self.settings, with_retraining=False),
+            KMeansRunner("K-Means (with Retraining)", self.settings, with_retraining=True),
+            RiverModelRunner(
+                "CluStream", 
+                CluStream(
+                    n_macro_clusters=n_clusters, 
+                    max_micro_clusters=clustream_micro_clusters,
+                    time_window=clustream_time_window,
+                    seed=42
+                ), 
+                self.settings
+            ),
+            RiverModelRunner(
+                "DenStream", 
+                DenStream(
+                    decaying_factor=0.01, 
+                    beta=0.5, 
+                    mu=3, 
+                    epsilon=denstream_epsilon
+                ), 
+                self.settings
+            )
+        ]
 
-        # --- CluStream ---
-        clustream_runner = RiverModelRunner(
-            "CluStream", 
-            CluStream(n_macro_clusters=n_clusters, max_micro_clusters=self.settings.CLUSTREAM_MICRO_CLUSTERS, seed=42),
-            self.settings
-        )
-        clustream_results = clustream_runner.run_and_evaluate(batches, n_clusters)
-        all_results.append({'label': clustream_runner.model_name, 'data': clustream_results})
-
-        # --- DenStream ---
-        denstream_runner = RiverModelRunner(
-            "DenStream",
-            DenStream(decaying_factor=0.01, beta=0.5, mu=3, epsilon=self.settings.DENSTREAM_EPSILON),
-            self.settings
-        )
-
-        denstream_results = denstream_runner.run_and_evaluate(batches, n_clusters)
-        all_results.append({'label': denstream_runner.model_name, 'data': denstream_results})
+        for runner in runners:
+            results_df = runner.run_and_evaluate(batches, n_clusters)
+            all_results.append({'label': runner.model_name, 'data': results_df})
 
         logging.info("Generating the summary chart...")
         visualizer = ResultsVisualizer(all_results, self.scenario_title)
