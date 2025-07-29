@@ -59,7 +59,7 @@ pip install pandas numpy scikit-learn matplotlib river requests
     -   **Stationary Scenario:** No preparation required. The script will automatically download the dataset.
     -   **Concept Drift Scenario:** Place the `.zip` archive containing the **Gas Sensor Array Drift** dataset in the project folder. **You must extract the archive** to create the `batch*.dat` files needed by the script.
 
-2.  **Choose your scenario:** Open the `script_stazionario.py` file and edit the `RUN_STATIONARY_SCENARIO` flag in the `ExperimentSettings` class.
+2.  **Choose your scenario:** Open the `script.py` file and edit the `RUN_STATIONARY_SCENARIO` flag in the `ExperimentSettings` class.
 
 3.  **Run the script** 
 
