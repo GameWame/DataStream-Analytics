@@ -31,7 +31,7 @@ This mode simulates a dynamic environment where the data properties change over 
 The project compares four distinct clustering strategies:
 
 1.  **K-Means:** A classic K-Means model trained only once on the initial data. It's fast but not adaptive.
-2.  **K-Means (with Retraining):** A K-Means model that is periodically retrained on new data. It's more adaptive but can be inefficient.
+2.  **K-Means (with Retraining):** A K-Means model that is periodically retrained on new data. 
 3.  **CluStream:** A streaming algorithm designed for high-speed data, using micro-clusters to summarize the stream.
 4.  **DenStream:** A density-based streaming algorithm that can find clusters of arbitrary shapes and is robust to noise.
 
